@@ -21,7 +21,9 @@ usage: ImageSteno.py [-h] [-e] [-d] [-n] -i INPUT_FILE -o OUTPUT_FILE
 ## Examples
 
 To encode an image without using a seed file and with no encryption:
+
 `ImageSteno.py -e -n -i myimage.png -o codedimage.png -p textfile.txt`
 
 To decode an image without using a seed file and with no encryption:
+
 `ImageSteno.py -d -n -i codedimage.png -o textfile.txt`
