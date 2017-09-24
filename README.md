@@ -1,6 +1,6 @@
 # Image-Steno
 
-An RGB image stenography program that hides information within an image's RGB channels' least significant bit(s). Each pixel in an image hides 4 bits of information; one bit each in two of the channels and two bits from one channel. The channel in which two bits are hidden is psuedorandomly selected using an optional user-supplied seed. Adding RSA encryption and decryption will be implemented in the future.
+An RGB image stenography program that hides information within an image's RGB channels' least significant bit(s). Each pixel in an image hides 4 bits of information; one bit each in two of the channels and two bits from one channel. The channel in which two bits are hidden is psuedorandomly selected using an optional user-supplied seed. RSA encryption and decryption will be implemented in the future; please use single keys instead of concatenated keys.
 
 ## Install
 
