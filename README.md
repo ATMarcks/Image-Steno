@@ -6,17 +6,17 @@ An RGB image stenography program that hides information within an image's RGB ch
 
 Image-Steno requires the Python `Pillow` or `PIL` library and Pyton 3.4 or above. If you do not have `PIL` or `Pillow` installed the application will prompt you if you'd like to install library but it is recommended to install as the following before running:
 
-'''
-$ pip install Pillow
-'''
+
+`$ pip install Pillow`
+
 
 ## Usage
 
-'''
+```
 usage: ImageSteno.py [-h] [-e] [-d] [-n] -i INPUT_FILE -o OUTPUT_FILE
                      [-r PRIVATE_KEY] [-u PUBLIC_KEY] [-p PLAINTEXT_FILE]
                      [-s SEED_FILE]
-'''
+```
 
 ## Examples
 
