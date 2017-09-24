@@ -1,0 +1,413 @@
+#!/usr/bin/python3.4
+
+import sys, argparse, os.path
+from pathlib import Path
+from random import Random
+
+try:
+    import pip
+except ImportError:
+    pass
+    #if they don't have pip then this is dealt with below
+    #pip.main(['install', 'Pillow']) should be caught in a try/except
+
+try:
+    from PIL import Image
+except ImportError:
+    prompt = ""
+    while (prompt != "y" and prompt != "n"):
+        prompt = input(
+            "This application requires the Pillow image library. Would you like to try download and install it through pip? (y/n)")
+    if prompt == "n":
+        sys.exit()
+    else:
+        try:
+            pip.main(['install', 'Pillow'])
+            try:
+                from PIL import Image
+            except ImportError:
+                print("Could not import Pillow; maybe try running the program again?")
+                sys.exit()
+        except:
+            print("Could not install Pillow through pip")
+            sys.exit()
+
+def main(argv):
+    #may want to implement putting in seed and plaintext straight through args instead of files
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-e', '--encode', help='Encode file', action='store_true')
+    parser.add_argument('-d', '--decode', help='Decode file', action='store_true')
+    parser.add_argument('-n', '--no-encryption', help='Do not use RSA encryption', action='store_true')
+    parser.add_argument('-i', '--input-file', help='Input file location/name; should be an image filetype if you are encoding', required=True, type=str)
+    parser.add_argument('-o', '--output-file', help='Output file location/name; should be an image filetype if you are decoding', required=True, type=str)
+    parser.add_argument('-r', '--private-key', help='RSA private key file location/name', type=str, default="noArg")
+    parser.add_argument('-u', '--public-key', help='RSA public key file location/name', type=str, default="noArg")
+    parser.add_argument('-p', '--plaintext-file', help='Plaintext file location/name to be encrypted', type=str, default="noArg")
+    parser.add_argument('-s', '--seed-file', help='Seed file location/name', type=str, default="noArg")
+    args = parser.parse_args()
+    validateArgs(args)
+    validateFiles(args)
+
+    if args.encode == True:
+        encode(args)
+
+    if args.decode == True:
+        decode(args)
+
+def decode(args):
+    print("Decoding image...")
+
+    #start file reads
+    try:
+        inputImage = Image.open(args.input_file)
+    except:
+        print("Could not load input image file")
+        sys.exit()
+
+    if (args.private_key != "noArg"):
+        try:
+            privateKeyFile = open(args.public_key, 'r')
+            privateKey = privateKeyFile.read();
+            privateKeyFile.close()  # for public key, if applicable
+        except:
+            print("Could not load private key")
+            sys.exit()
+
+    try:
+        inputImage = Image.open(args.input_file)
+    except:
+        print("Could not load input image file")
+        sys.exit()
+    #end file reads
+
+    textDecoded = decodingFunction(args, inputImage)
+
+    #TODO: decrypt, if selected
+    try:
+        outputPlaintext = open(args.output_file, "w")
+        outputPlaintext.write(textDecoded)
+        outputPlaintext.close()
+    except:
+        print("Could not write output text file")
+        sys.exit()
+
+
+#TODO: implement encryption, if applicable
+def encode(args):
+    print("Encoding image...")
+
+    #start file reads
+    try:
+        textFile = open(args.plaintext_file, 'r')
+        plaintext = textFile.read(); textFile.close() #for plaintext
+    except:
+        print("Could not load plaintext file")
+        sys.exit()
+
+    if (args.public_key != "noArg"):
+        try:
+            publicKeyFile = open(args.public_key, 'r')
+            publicKey = publicKeyFile.read();
+            publicKeyFile.close() #for public key, if applicable
+        except:
+            print("Could not load public key")
+            sys.exit()
+
+    try:
+        inputImage = Image.open(args.input_file)
+    except:
+        print("Could not load input image file")
+        sys.exit()
+    #end file reads
+
+    # add a sequence at the end of the string to let the decoder know when to stop
+    # this is added post-encryption but should be obscured via random seed, if used
+    plaintext += "[STOP_SEQ]"
+    plaintextBits = stringToBits(plaintext)  # should be in list form
+
+    plaintextBitCount = len(plaintextBits)
+
+    width, height = inputImage.size
+    if (plaintextBitCount > width * height * 4): #we are going to be encoding 4 bits of data in every pixel
+        print("Your image file is too small for the text you provided to be encoded in the image")
+
+    imageEncoded = encodingFunction(args, inputImage, plaintextBits, plaintextBitCount)
+
+    #rembmer that args.input_file.split(".",1)[-1] returns a single-item list
+    if args.input_file.split(".",1)[-1] != args.output_file.split(".",1)[-1]:
+        print("Your output image file extension does not match your input image file exension")
+        prompt = ""
+        while (prompt != "y" and prompt != "n"):
+            prompt = input("Would you like to replace (or add) the output file extension with the input file extension? (y/n)")
+        if prompt == "y":
+            #outputFileName =  args.output_file.split(".",1)[:-1] + "." + args.input_file.split(".",1)[-1]
+            outputFileName = (".").join([("").join(args.output_file.split(".",1)[0]), args.input_file.split(".",1)[-1]])
+        else:
+            outputFileName = args.output_file
+    else:
+        outputFileName = args.output_file
+
+    try:
+        imageEncoded.save(outputFileName)
+    except:
+        print("Could not save output image file")
+        sys.exit()
+
+def decodingFunction(args, inputImage):
+    decodeRandom = Random()  # make a unique Random instance
+
+    if (args.seed_file == "noArg"):
+        decodeRandom.seed("this could be anything")
+    else:
+        try:
+            seedFile = open(args.seed_file, 'r')
+            seed = seedFile.read()
+            seedFile.close()  # for seed
+            decodeRandom.seed(seed)
+        except:
+            print("Could not load seed file")
+            sys.exit()
+
+    width, height = inputImage.size
+    rgbInput = inputImage.convert("RGB")
+
+    textDecoded = ""
+    bitsGathered = 0
+    bitList = []
+    for y in range(1, width):
+        for x in range(1, width):
+            r, g, b = rgbInput.getpixel((x, y))
+            randomTemp = decodeRandom.randint(0,2)
+            #assign r, g, then b and firstbit secondbit
+            if randomTemp == 0:
+                lastTwoBitsR = r & 3
+                bitList.append(lastTwoBitsR & 1)
+                bitList.append((lastTwoBitsR & 2) >> 1)
+                bitList.append(g & 1)
+                bitList.append(b & 1)
+                bitsGathered += 4
+            elif randomTemp == 1:
+                lastTwoBitsG = g & 3
+                bitList.append(r & 1)
+                bitList.append(lastTwoBitsG & 1)
+                bitList.append((lastTwoBitsG & 2) >> 1)
+                bitList.append(b & 1)
+                bitsGathered += 4
+            elif randomTemp == 2:
+                lastTwoBitsB = b & 3
+                bitList.append(r & 1)
+                bitList.append(g & 1)
+                bitList.append(lastTwoBitsB & 1)
+                bitList.append((lastTwoBitsB & 2) >> 1)
+                bitsGathered += 4
+            #for every ASCII byte
+            if(bitsGathered % 8 == 0):
+                textDecoded += stringFromBits(bitList)
+                bitList = []
+                if(textDecoded.endswith("[STOP_SEQ]")):
+                    textDecoded = textDecoded[:-10]
+                    return textDecoded
+
+def encodingFunction(args, inputImage, plaintextBits, plaintextBitCount):
+    encodeRandom = Random()  # make a unique Random instance
+
+    if (args.seed_file == "noArg"):
+        encodeRandom.seed("this could be anything")
+    else:
+        try:
+            seedFile = open(args.seed_file, 'r')
+            seed = seedFile.read()
+            seedFile.close()  # for seed
+            encodeRandom.seed(seed)
+        except:
+            print("Could not load seed file")
+            sys.exit()
+
+    rgbInput = inputImage.convert("RGB")
+    width, height = rgbInput.size  # maybe works
+    bitsImplemented = 0
+    for y in range(1, width):
+        for x in range(1, width):
+            r, g, b = rgbInput.getpixel((x, y))
+            randomTemp = encodeRandom.randint(0, 2)
+            # set 2 LSBs of r integer, 1 LSB of g, and 1 LSB of b
+            if randomTemp == 0:
+                # assign first bit of r
+                if plaintextBits[bitsImplemented] == 0:  # if we need to put in a zero
+                    r = r & ~1; bitsImplemented += 1
+                else:  # if we need to put in a 1
+                    r = r | 1; bitsImplemented += 1
+                # assign second bit of r
+                if plaintextBits[bitsImplemented] == 0:  # if we need to put in a zero
+                    r = (r & ~(1 << 1)) | (0 << 1); bitsImplemented += 1
+                else:
+                    r = (r & ~(1 << 1)) | (1 << 1); bitsImplemented += 1
+                # assign first bit of g
+                if plaintextBits[bitsImplemented] == 0:  # if we need to put in a zero
+                    g = g & ~1; bitsImplemented += 1
+                else:  # if we need to put in a 1
+                    g = g | 1; bitsImplemented += 1
+                # assign first bit of b
+                if plaintextBits[bitsImplemented] == 0:  # if we need to put in a zero
+                    b = b & ~1; bitsImplemented += 1
+                else:  # if we need to put in a 1
+                    b = b | 1; bitsImplemented += 1
+            elif randomTemp == 1:
+                # assign first bit of r
+                if plaintextBits[bitsImplemented] == 0:  # if we need to put in a zero
+                    r = r & ~1; bitsImplemented += 1
+                else:  # if we need to put in a 1
+                    r = r | 1; bitsImplemented += 1
+                # assign first bit of g
+                if plaintextBits[bitsImplemented] == 0:  # if we need to put in a zero
+                    g = g & ~1; bitsImplemented += 1
+                else:  # if we need to put in a 1
+                    g = g | 1; bitsImplemented += 1
+                # assign second bit of g
+                if plaintextBits[bitsImplemented] == 0:  # if we need to put in a zero
+                    g = (g & ~(1 << 1)) | (0 << 1); bitsImplemented += 1
+                else:
+                    g = (g & ~(1 << 1)) | (1 << 1); bitsImplemented += 1
+                # assign first bit of b
+                if plaintextBits[bitsImplemented] == 0:  # if we need to put in a zero
+                    b = b & ~1; bitsImplemented += 1
+                else:  # if we need to put in a 1
+                    b = b | 1; bitsImplemented += 1
+            elif randomTemp == 2:
+                # assign first bit of r
+                if plaintextBits[bitsImplemented] == 0:  # if we need to put in a zero
+                    r = r & ~1; bitsImplemented += 1
+                else:  # if we need to put in a 1
+                    r = r | 1; bitsImplemented += 1
+                # assign first bit of g
+                if plaintextBits[bitsImplemented] == 0:  # if we need to put in a zero
+                    g = g & ~1; bitsImplemented += 1
+                else:  # if we need to put in a 1
+                    g = g | 1; bitsImplemented += 1
+                # assign first bit of b
+                if plaintextBits[bitsImplemented] == 0:  # if we need to put in a zero
+                    b = b & ~1; bitsImplemented += 1
+                else:  # if we need to put in a 1
+                    b = b | 1; bitsImplemented += 1
+                # assign second bit of b
+                if plaintextBits[bitsImplemented] == 0:  # if we need to put in a zero
+                    b = (b & ~(1 << 1)) | (0 << 1); bitsImplemented += 1
+                else:
+                    b = (b & ~(1 << 1)) | (1 << 1); bitsImplemented += 1
+            #set the pixel itself
+            pixelValue = (r, g, b)
+            inputImage.putpixel((x, y), pixelValue)
+            #this should work as it takes at least two pixels to represent one character
+            if bitsImplemented >= plaintextBitCount:
+                return inputImage
+
+#https://stackoverflow.com/questions/10237926/convert-string-to-list-of-bits-and-viceversa
+def stringToBits(s):
+    result = []
+    for c in s:
+        bits = bin(ord(c))[2:]
+        bits = '00000000'[len(bits):] + bits
+        result.extend([int(b) for b in bits])
+    return result
+
+#https://stackoverflow.com/questions/10237926/convert-string-to-list-of-bits-and-viceversa
+def stringFromBits(bits):
+    chars = []
+    for b in range(len(bits) // 8):
+        byte = bits[b*8:(b+1)*8]
+        chars.append(chr(int(''.join([str(bit) for bit in byte]), 2)))
+    return ''.join(chars)
+
+def validateFiles(args):
+    #does not need if, this is required input and is always checked
+    try:
+        if Path(args.input_file).is_file() == False:
+            print("Input file " + args.input_file + " does not exist")
+            sys.exit(2)
+    except:
+        print("Error reading input file (do you have permissions?)")
+        sys.exit(2)
+
+    #if we are using encryption check for private and public key files
+    if args.no_encryption == False:
+        try:
+            if Path(args.private_key).is_file() == False:
+                print("Private key file " + args.input_file + " does not exist")
+                sys.exit(2)
+        except:
+            print("Error reading private key file (do you have permissions?)")
+            sys.exit(2)
+
+        try:
+            if Path(args.public_key).is_file() == False:
+                print("Private key file " + args.input_file + " does not exist")
+                sys.exit(2)
+        except:
+            print("Error reading public key file (do you have permissions?)")
+            sys.exit(2)
+
+    #if we are encoding we need to check plaintext file
+    if args.encode == True:
+        try:
+            if Path(args.plaintext_file).is_file() == False:
+                print("Plaintext file " + args.input_file + " does not exist")
+                sys.exit(2)
+        except:
+            print("Error reading plaintext file for encoding (do you have permissions?)")
+            sys.exit(2)
+
+    #if we are using a seed file
+    if args.seed_file == True:
+        try:
+            if Path(args.seed_file).is_file() == False:
+                print("Seed file " + args.input_file + " does not exist")
+                sys.exit(2)
+        except:
+            print("Error reading seed file for encoding/decoding (do you have permissions?)")
+            sys.exit(2)
+
+def validateArgs(args):
+    if args.encode == True and args.decode == True:
+        print("You must choose to either encode or decode a file, not both")
+        argErrorQuit()
+    if args.input_file == "noArg":
+        print("You must specify an input file")
+        argErrorQuit()
+    if args.output_file == "noArg":
+        print("You must specify an output file")
+        argErrorQuit()
+    if args.encode == True and args.public_key == "noArg" and args.no_encryption == False:
+        print("You must supply a public key if you are encrypting a file or select no encryption [-n]")
+        argErrorQuit()
+    if args.decode == True and args.private_key == "noArg" and args.no_encryption == False:
+        print("You must supply a private key if you are decrypting a file or select no encryption [-n]")
+        argErrorQuit()
+    if args.encode == True and args.plaintext_file == "noArg":
+        print("You must supply a plaintext file to be inserted into the image if you are encoding a file")
+        argErrorQuit()
+    if args.seed_file == "noArg":
+        prompt = ""
+        while (prompt != "y" and prompt != "n"):
+            prompt = input("You did not select a seed file and a default seed will be used. Would you like to continue? (y/n) ")
+        if prompt == "n":
+            sys.exit()
+    if args.encode == False and args.decode == False:
+        print("You must chose whether to encode or decode a file")
+        sys.exit()
+    if args.encode == True and args.input_file.lower().endswith(('.png', '.bmp')) == False:
+        print("You may be trying to use an unsupported or lossy file format\n")
+        print("Supported file formats are .png and .bmp\n")
+        print("Encoding in a lossy format will likely result in an undecoeable image.\n")
+        prompt = ""
+        while (prompt != "y" and prompt != "n"):
+            prompt = input("Would you like to continue anyway? (y/n)")
+        if prompt == "n":
+            sys.exit()
+
+def argErrorQuit():
+    #change ImageSteno.py to params stuff
+    print("ImageSteno.py -e [encode] -d [decode] -n [no encryption] -i <inputimage> -o <outputfile> -r <privatekey> -u <publickey> -p <plaintextfile> -s <seedfile>")
+    sys.exit(2)
+
+if __name__ == "__main__":
+    main(sys.argv[1:])
