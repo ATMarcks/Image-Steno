@@ -33,7 +33,6 @@ except ImportError:
             sys.exit()
 
 def main(argv):
-    #may want to implement putting in seed and plaintext straight through args instead of files
     parser = argparse.ArgumentParser()
     parser.add_argument('-e', '--encode', help='Encode file', action='store_true')
     parser.add_argument('-d', '--decode', help='Decode file', action='store_true')
