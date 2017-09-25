@@ -26,10 +26,10 @@ except ImportError:
             try:
                 from PIL import Image
             except ImportError:
-                print("Could not import Pillow; maybe try running the program again?")
+                print("Could not import Pillow")
                 sys.exit()
         except:
-            print("Could not install Pillow through pip")
+            print("Could not install Pillow through pip; try updating pip or installing outside of this program")
             sys.exit()
 
 def main(argv):
@@ -37,14 +37,12 @@ def main(argv):
     parser = argparse.ArgumentParser()
     parser.add_argument('-e', '--encode', help='Encode file', action='store_true')
     parser.add_argument('-d', '--decode', help='Decode file', action='store_true')
-    parser.add_argument('-n', '--no-encryption', help='Do not use RSA encryption', action='store_true')
     parser.add_argument('-i', '--input-file', help='Input file location/name; should be an image filetype if you are encoding', required=True, type=str)
     parser.add_argument('-o', '--output-file', help='Output file location/name; should be an image filetype if you are decoding', required=True, type=str)
-    parser.add_argument('-r', '--private-key', help='RSA private key file location/name', type=str, default="noArg")
-    parser.add_argument('-u', '--public-key', help='RSA public key file location/name', type=str, default="noArg")
-    parser.add_argument('-p', '--plaintext-file', help='Plaintext file location/name to be encrypted', type=str, default="noArg")
+    parser.add_argument('-p', '--plaintext-file', help='Plaintext file location/name to be inserted within image', type=str, default="noArg")
     parser.add_argument('-s', '--seed-file', help='Seed file location/name', type=str, default="noArg")
     args = parser.parse_args()
+    args.uses_system_input_seed = False
     validateArgs(args)
     validateFiles(args)
 
@@ -64,25 +62,14 @@ def decode(args):
         print("Could not load input image file")
         sys.exit()
 
-    if (args.private_key != "noArg"):
-        try:
-            privateKeyFile = open(args.public_key, 'r')
-            privateKey = privateKeyFile.read();
-            privateKeyFile.close()  # for public key, if applicable
-        except:
-            print("Could not load private key")
-            sys.exit()
-
     try:
         inputImage = Image.open(args.input_file)
     except:
         print("Could not load input image file")
         sys.exit()
-    #end file reads
 
     textDecoded = decodingFunction(args, inputImage)
 
-    #TODO: decrypt, if selected
     try:
         outputPlaintext = open(args.output_file, "w")
         outputPlaintext.write(textDecoded)
@@ -91,8 +78,8 @@ def decode(args):
         print("Could not write output text file")
         sys.exit()
 
+    print("Image successfully decoded")
 
-#TODO: implement encryption, if applicable
 def encode(args):
     print("Encoding image...")
 
@@ -103,15 +90,6 @@ def encode(args):
     except:
         print("Could not load plaintext file")
         sys.exit()
-
-    if (args.public_key != "noArg"):
-        try:
-            publicKeyFile = open(args.public_key, 'r')
-            publicKey = publicKeyFile.read();
-            publicKeyFile.close() #for public key, if applicable
-        except:
-            print("Could not load public key")
-            sys.exit()
 
     try:
         inputImage = Image.open(args.input_file)
@@ -140,7 +118,6 @@ def encode(args):
         while (prompt != "y" and prompt != "n"):
             prompt = input("Would you like to replace (or add) the output file extension with the input file extension? (y/n)")
         if prompt == "y":
-            #outputFileName =  args.output_file.split(".",1)[:-1] + "." + args.input_file.split(".",1)[-1]
             outputFileName = (".").join([("").join(args.output_file.split(".",1)[0]), args.input_file.split(".",1)[-1]])
         else:
             outputFileName = args.output_file
@@ -153,11 +130,15 @@ def encode(args):
         print("Could not save output image file")
         sys.exit()
 
+    print("Image successfully encoded")
+
 def decodingFunction(args, inputImage):
     decodeRandom = Random()  # make a unique Random instance
 
     if (args.seed_file == "noArg"):
         decodeRandom.seed("this could be anything")
+    elif (args.uses_system_input_seed == True):
+        decodeRandom.seed(args.seed_file)
     else:
         try:
             seedFile = open(args.seed_file, 'r')
@@ -174,7 +155,7 @@ def decodingFunction(args, inputImage):
     textDecoded = ""
     bitsGathered = 0
     bitList = []
-    for y in range(1, width):
+    for y in range(1, height):
         for x in range(1, width):
             r, g, b = rgbInput.getpixel((x, y))
             randomTemp = decodeRandom.randint(0,2)
@@ -207,12 +188,16 @@ def decodingFunction(args, inputImage):
                 if(textDecoded.endswith("[STOP_SEQ]")):
                     textDecoded = textDecoded[:-10]
                     return textDecoded
+    print("Reached end of file without encountering stop sequence; check if your file is encoded or if you have the right seed")
+    sys.exit()
 
 def encodingFunction(args, inputImage, plaintextBits, plaintextBitCount):
     encodeRandom = Random()  # make a unique Random instance
 
     if (args.seed_file == "noArg"):
         encodeRandom.seed("this could be anything")
+    elif (args.uses_system_input_seed == True):
+        encodeRandom.seed(args.seed_file)
     else:
         try:
             seedFile = open(args.seed_file, 'r')
@@ -226,7 +211,7 @@ def encodingFunction(args, inputImage, plaintextBits, plaintextBitCount):
     rgbInput = inputImage.convert("RGB")
     width, height = rgbInput.size  # maybe works
     bitsImplemented = 0
-    for y in range(1, width):
+    for y in range(1, height):
         for x in range(1, width):
             r, g, b = rgbInput.getpixel((x, y))
             randomTemp = encodeRandom.randint(0, 2)
@@ -328,24 +313,6 @@ def validateFiles(args):
         print("Error reading input file (do you have permissions?)")
         sys.exit(2)
 
-    #if we are using encryption check for private and public key files
-    if args.no_encryption == False:
-        try:
-            if Path(args.private_key).is_file() == False:
-                print("Private key file " + args.input_file + " does not exist")
-                sys.exit(2)
-        except:
-            print("Error reading private key file (do you have permissions?)")
-            sys.exit(2)
-
-        try:
-            if Path(args.public_key).is_file() == False:
-                print("Private key file " + args.input_file + " does not exist")
-                sys.exit(2)
-        except:
-            print("Error reading public key file (do you have permissions?)")
-            sys.exit(2)
-
     #if we are encoding we need to check plaintext file
     if args.encode == True:
         try:
@@ -354,16 +321,6 @@ def validateFiles(args):
                 sys.exit(2)
         except:
             print("Error reading plaintext file for encoding (do you have permissions?)")
-            sys.exit(2)
-
-    #if we are using a seed file
-    if args.seed_file == True:
-        try:
-            if Path(args.seed_file).is_file() == False:
-                print("Seed file " + args.input_file + " does not exist")
-                sys.exit(2)
-        except:
-            print("Error reading seed file for encoding/decoding (do you have permissions?)")
             sys.exit(2)
 
 def validateArgs(args):
@@ -376,21 +333,18 @@ def validateArgs(args):
     if args.output_file == "noArg":
         print("You must specify an output file")
         argErrorQuit()
-    if args.encode == True and args.public_key == "noArg" and args.no_encryption == False:
-        print("You must supply a public key if you are encrypting a file or select no encryption [-n]")
-        argErrorQuit()
-    if args.decode == True and args.private_key == "noArg" and args.no_encryption == False:
-        print("You must supply a private key if you are decrypting a file or select no encryption [-n]")
-        argErrorQuit()
     if args.encode == True and args.plaintext_file == "noArg":
         print("You must supply a plaintext file to be inserted into the image if you are encoding a file")
         argErrorQuit()
     if args.seed_file == "noArg":
         prompt = ""
-        while (prompt != "y" and prompt != "n"):
-            prompt = input("You did not select a seed file and a default seed will be used. Would you like to continue? (y/n) ")
-        if prompt == "n":
+        while (prompt != "q" and prompt != "e" and prompt != "d"):
+            prompt = input("You did not select a seed file. Would you like use the default seed value, enter one, or quit? (d/e/q) ")
+        if prompt == "q":
             sys.exit()
+        elif prompt == "e":
+            args.seed_file = input("Please enter the seed you would like to use: ")
+            args.uses_system_input_seed = True
     if args.encode == False and args.decode == False:
         print("You must chose whether to encode or decode a file")
         sys.exit()
@@ -400,13 +354,13 @@ def validateArgs(args):
         print("Encoding in a lossy format will likely result in an undecoeable image.\n")
         prompt = ""
         while (prompt != "y" and prompt != "n"):
-            prompt = input("Would you like to continue anyway? (y/n)")
+            prompt = input("Would you like to continue anyway? (y/n) ")
         if prompt == "n":
             sys.exit()
 
 def argErrorQuit():
     #change ImageSteno.py to params stuff
-    print("ImageSteno.py -e [encode] -d [decode] -n [no encryption] -i <inputimage> -o <outputfile> -r <privatekey> -u <publickey> -p <plaintextfile> -s <seedfile>")
+    print("ImageSteno.py -e [encode] -d [decode] -i <inputimage> -o <outputfile> -p <plaintextfile> -s <seedfile>")
     sys.exit(2)
 
 if __name__ == "__main__":
