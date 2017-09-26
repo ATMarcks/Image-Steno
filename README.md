@@ -1,6 +1,6 @@
 # Image-Steno
 
-Image-Steno is an RGB image stenography program that hides information within an image's RGB channels' least significant bit(s). Each pixel in an image hides 4 bits of information; one bit each in two of the channels and two bits from one channel. The channel in which two bits are hidden is psuedorandomly selected using an optional user-supplied seed via a file or terminal input.
+Image-Steno is an RGB image stenography program that hides plaintext ASCII information within an image's RGB channels' least significant bit(s). Each pixel in an image hides 4 bits of information; one bit each in two of the channels and two bits from one channel. The channel in which two bits are hidden is psuedorandomly selected using an optional user-supplied seed via a file or terminal input.
 
 It is highly recommended that you use lossless image formats such as BMP and PNG. You may use other file formats and lossy formats—as long as they are supported by Pillow—but the program will prompt you first and your encoded data will likely be lost during file compression.
 
