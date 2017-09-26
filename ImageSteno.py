@@ -147,7 +147,7 @@ def decodingFunction(args, inputImage):
             seedFile.close()  # for seed
             decodeRandom.seed(seed)
         except:
-            print("Could not load seed file")
+            print("Could not load seed file " + args.seed_file + "; is it a text file?")
             sys.exit()
 
     width, height = inputImage.size
@@ -206,7 +206,7 @@ def encodingFunction(args, inputImage, plaintextBits, plaintextBitCount):
             seedFile.close()
             encodeRandom.seed(seed)
         except:
-            print("Could not load seed file " + args.seed_file)
+            print("Could not load seed file " + args.seed_file + "; is it a text file?")
             sys.exit(1)
 
     rgbInput = inputImage.convert("RGB")
