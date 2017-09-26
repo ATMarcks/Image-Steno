@@ -360,7 +360,6 @@ def validateArgs(args):
             sys.exit(2)
 
 def argErrorQuit():
-    #change ImageSteno.py to params stuff
     print("ImageSteno.py -e [encode] -d [decode] -i <inputimage> -o <outputfile> -p <plaintextfile> -s <seedfile>")
     sys.exit(2)
 
