@@ -56,7 +56,7 @@ Only users who have the seed can decode the file given they cannot obtain the or
 
 Example of a good image with varied, unpredictable colors throughout:
 
-![A good image](https://github.com/ATMarcks/Files/blob/master/Image-Steno/badimage.png?raw=true)
+![A good image](https://github.com/ATMarcks/Files/blob/master/Image-Steno/goodimage.png?raw=true)
 
 Example of a bad image with large, predictable chunks of the same color:
 
