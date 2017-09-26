@@ -1,6 +1,6 @@
 # Image-Steno
 
-Image-Steno is an RGB image stenography program that hides plaintext ASCII information within an image's RGB channels' least significant bit(s). Each pixel in an image hides 4 bits of information; one bit each in two of the channels and two bits from one channel. The channel in which two bits are hidden is psuedorandomly selected using an optional user-supplied seed via a file or terminal input. Only users who have the seed can decode the file given they do not have the original image or could not reconstruct the original image from the encoded image (i.e. avoid images that predictable chunks of the same color).
+Image-Steno is an RGB image stenography program that hides plaintext ASCII information within an image's RGB channels' least significant bit(s). Each pixel in an image hides 4 bits of information; one bit each in two of the channels and two bits from one channel. The channel in which two bits are hidden is psuedorandomly selected using an optional user-supplied seed via a file or terminal input.
 
 It is highly recommended that you use lossless image formats such as BMP and PNG. You may use other file formats and lossy formats—as long as they are supported by Pillow—but the program will prompt you first and your encoded data will likely be lost during file compression.
 
@@ -49,3 +49,15 @@ To encode an image using a seed file:
 To decode an image using a seed file:
 
 `ImageSteno.py -d -i codedimage.png -o textfile.txt -s seedfile`
+
+## Seeding
+
+Only users who have the seed can decode the file given they cannot obtain the original image or could not reconstruct the original image from the encoded image (i.e. avoid images that predictable chunks of the same color). 
+
+Example of a good image with varied, unpredictable colors throughout:
+
+![A good image](https://github.com/ATMarcks/Files/blob/master/Image-Steno/badimage.png?raw=true)
+
+Example of a bad image with large, predictable chunks of the same color:
+
+![A bad image](https://github.com/ATMarcks/Files/blob/master/Image-Steno/badimage.png?raw=true)
