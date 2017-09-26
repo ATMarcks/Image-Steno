@@ -19,7 +19,7 @@ except ImportError:
         prompt = input(
             "This application requires the Pillow image library. Would you like to try download and install it through pip? (y/n)")
     if prompt == "n":
-        sys.exit()
+        sys.exit(1)
     else:
         try:
             pip.main(['install', 'Pillow'])
@@ -27,10 +27,10 @@ except ImportError:
                 from PIL import Image
             except ImportError:
                 print("Could not import Pillow")
-                sys.exit()
+                sys.exit(1)
         except:
             print("Could not install Pillow through pip; try updating pip or installing outside of this program")
-            sys.exit()
+            sys.exit(1)
 
 def main(argv):
     parser = argparse.ArgumentParser()
@@ -58,15 +58,11 @@ def decode(args):
     try:
         inputImage = Image.open(args.input_file)
     except:
-        print("Could not load input image file")
-        sys.exit()
+        print("Could not load input image file " + args.input_file)
+        sys.exit(1)
+    #end file reads
 
-    try:
-        inputImage = Image.open(args.input_file)
-    except:
-        print("Could not load input image file")
-        sys.exit()
-
+    #run decode function
     textDecoded = decodingFunction(args, inputImage)
 
     try:
@@ -74,7 +70,7 @@ def decode(args):
         outputPlaintext.write(textDecoded)
         outputPlaintext.close()
     except:
-        print("Could not write output text file")
+        print("Could not write output text file " + args.output_file)
         sys.exit()
 
     print("Image successfully decoded")
@@ -85,39 +81,44 @@ def encode(args):
     #start file reads
     try:
         textFile = open(args.plaintext_file, 'r')
-        plaintext = textFile.read(); textFile.close() #for plaintext
+        plaintext = textFile.read(); textFile.close()
     except:
-        print("Could not load plaintext file")
+        print("Could not load plaintext file " + args.plaintext_file)
         sys.exit()
 
     try:
         inputImage = Image.open(args.input_file)
     except:
-        print("Could not load input image file")
+        print("Could not load input image file " + args.input_file)
         sys.exit()
     #end file reads
 
-    # add a sequence at the end of the string to let the decoder know when to stop
-    # this is added post-encryption but should be obscured via random seed, if used
+    #add a sequence at the end of the string to let the decoder know when to stop
+    #should be obscured if using custom-set seed
     plaintext += "[STOP_SEQ]"
     plaintextBits = stringToBits(plaintext)  # should be in list form
-
     plaintextBitCount = len(plaintextBits)
-
     width, height = inputImage.size
+
     if (plaintextBitCount > width * height * 4): #we are going to be encoding 4 bits of data in every pixel
-        print("Your image file is too small for the text you provided to be encoded in the image")
+        print("Your image file " + args.input_file + "is too small for the text you provided to be encoded in the image")
 
-    imageEncoded = encodingFunction(args, inputImage, plaintextBits, plaintextBitCount)
+    try:
+        imageEncoded = encodingFunction(args, inputImage, plaintextBits, plaintextBitCount)
+    except:
+        print("Could not encode text file " + args.plaintext_file + " into image; does it contain non-ASCII or unicode characters?")
+        sys.exit(1)
 
+    inputFileExtension = args.input_file.split(".",1)[-1]
+    outputFileExtension = args.output_file.split(".",1)[-1]
     #rembmer that args.input_file.split(".",1)[-1] returns a single-item list
-    if args.input_file.split(".",1)[-1] != args.output_file.split(".",1)[-1]:
-        print("Your output image file extension does not match your input image file exension")
+    if inputFileExtension != outputFileExtension:
+        print("Your output image file extension " + outputFileExtension + " does not match your input image file exension " + inputFileExtension)
         prompt = ""
         while (prompt != "y" and prompt != "n"):
             prompt = input("Would you like to replace (or add) the output file extension with the input file extension? (y/n)")
         if prompt == "y":
-            outputFileName = (".").join([("").join(args.output_file.split(".",1)[0]), args.input_file.split(".",1)[-1]])
+            outputFileName = (".").join([("").join(args.output_file.split(".",1)[0]), inputFileExtension])
         else:
             outputFileName = args.output_file
     else:
@@ -126,14 +127,15 @@ def encode(args):
     try:
         imageEncoded.save(outputFileName)
     except:
-        print("Could not save output image file")
-        sys.exit()
+        print("Could not save output image file " + outputFileName)
+        sys.exit(1)
 
     print("Image successfully encoded")
 
 def decodingFunction(args, inputImage):
     decodeRandom = Random()  # make a unique Random instance
 
+    #set seed
     if (args.seed_file == "noArg"):
         decodeRandom.seed("this could be anything")
     elif (args.uses_system_input_seed == True):
@@ -150,10 +152,10 @@ def decodingFunction(args, inputImage):
 
     width, height = inputImage.size
     rgbInput = inputImage.convert("RGB")
-
     textDecoded = ""
     bitsGathered = 0
     bitList = []
+
     for y in range(1, height):
         for x in range(1, width):
             r, g, b = rgbInput.getpixel((x, y))
@@ -188,7 +190,7 @@ def decodingFunction(args, inputImage):
                     textDecoded = textDecoded[:-10]
                     return textDecoded
     print("Reached end of file without encountering stop sequence; check if your file is encoded or if you have the right seed")
-    sys.exit()
+    sys.exit(1)
 
 def encodingFunction(args, inputImage, plaintextBits, plaintextBitCount):
     encodeRandom = Random()  # make a unique Random instance
@@ -201,11 +203,11 @@ def encodingFunction(args, inputImage, plaintextBits, plaintextBitCount):
         try:
             seedFile = open(args.seed_file, 'r')
             seed = seedFile.read()
-            seedFile.close()  # for seed
+            seedFile.close()
             encodeRandom.seed(seed)
         except:
-            print("Could not load seed file")
-            sys.exit()
+            print("Could not load seed file " + args.seed_file)
+            sys.exit(1)
 
     rgbInput = inputImage.convert("RGB")
     width, height = rgbInput.size  # maybe works
@@ -309,44 +311,44 @@ def validateFiles(args):
             print("Input file " + args.input_file + " does not exist")
             sys.exit(2)
     except:
-        print("Error reading input file (do you have permissions?)")
-        sys.exit(2)
+        print("Error reading input file " + args.input_file + "(do you have permissions?)")
+        sys.exit(1)
 
     #if we are encoding we need to check plaintext file
     if args.encode == True:
         try:
             if Path(args.plaintext_file).is_file() == False:
-                print("Plaintext file " + args.input_file + " does not exist")
+                print("Plaintext file " + args.plaintext_file + " does not exist")
                 sys.exit(2)
         except:
-            print("Error reading plaintext file for encoding (do you have permissions?)")
-            sys.exit(2)
+            print("Error reading plaintext file " + args.plaintext_file + "for encoding (do you have permissions?)")
+            sys.exit(1)
 
 def validateArgs(args):
     if args.encode == True and args.decode == True:
         print("You must choose to either encode or decode a file, not both")
-        argErrorQuit()
+        argErrorQuit(2)
     if args.input_file == "noArg":
         print("You must specify an input file")
-        argErrorQuit()
+        argErrorQuit(2)
     if args.output_file == "noArg":
         print("You must specify an output file")
-        argErrorQuit()
+        argErrorQuit(2)
     if args.encode == True and args.plaintext_file == "noArg":
         print("You must supply a plaintext file to be inserted into the image if you are encoding a file")
-        argErrorQuit()
+        argErrorQuit(2)
     if args.seed_file == "noArg":
         prompt = ""
         while (prompt != "q" and prompt != "e" and prompt != "d"):
             prompt = input("You did not select a seed file. Would you like use the default seed value, enter one, or quit? (d/e/q) ")
         if prompt == "q":
-            sys.exit()
+            sys.exit(2)
         elif prompt == "e":
             args.seed_file = input("Please enter the seed you would like to use: ")
             args.uses_system_input_seed = True
     if args.encode == False and args.decode == False:
         print("You must chose whether to encode or decode a file")
-        sys.exit()
+        sys.exit(2)
     if args.encode == True and args.input_file.lower().endswith(('.png', '.bmp')) == False:
         print("You may be trying to use an unsupported or lossy file format\n")
         print("Supported file formats are .png and .bmp\n")
@@ -355,7 +357,7 @@ def validateArgs(args):
         while (prompt != "y" and prompt != "n"):
             prompt = input("Would you like to continue anyway? (y/n) ")
         if prompt == "n":
-            sys.exit()
+            sys.exit(2)
 
 def argErrorQuit():
     #change ImageSteno.py to params stuff
