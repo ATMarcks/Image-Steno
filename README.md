@@ -52,7 +52,7 @@ To decode an image using a seed file:
 
 ## Seeding
 
-Only users who have the seed can decode the file given they cannot obtain the original image or can not reliably reconstruct the original image from the encoded image (i.e. avoid images that predictable chunks of the same color). 
+If you are using a user input seed only those who have the seed can decode the file given they cannot obtain the original image or can not reliably reconstruct the original image from the encoded image (i.e. avoid images that predictable chunks of the same color). 
 
 Example of a good image with varied, unpredictable colors throughout:
 
