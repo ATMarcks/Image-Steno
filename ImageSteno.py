@@ -83,7 +83,7 @@ def encode(args):
         textFile = open(args.plaintext_file, 'r')
         plaintext = textFile.read(); textFile.close()
     except:
-        print("Could not load plaintext file " + args.plaintext_file)
+        print("Could not load plaintext file " + args.plaintext_file +"; is it a text file?")
         sys.exit()
 
     try:
